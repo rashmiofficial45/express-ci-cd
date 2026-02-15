@@ -1,55 +1,55 @@
-import { describe, expect, it, vi } from "vitest";
-import { userfn } from "../utils";
-/**
- * ─────────────────────────────────────────────
- *  OPTIONAL: Mock Prisma (recommended for unit tests)
- * ─────────────────────────────────────────────
- * Now it is working perfectly.
- */
-// vi.mock("../db", () => ({
-//   prismaClient: {
-//     sum: {
-//       create: vi.fn()
-//     }
-//   }
-// }));
-
-//mocking the db module deeply (mockDeep)
-vi.mock("../db")
-vi.mock("../utils") //IMP: this line activates the mock. commenting this line will deactivate the mock even if the the mock file exists...
-
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import request from "supertest";
 import { app } from "../index";
 
+// Mocks must be hoisted - vi.mock is auto-hoisted
+vi.mock("../db");
+vi.mock("../utils");
+
+import { prismaClient } from "../db";
+
 describe("POST /sum", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe("When inputs are valid", () => {
     it("should return 200 and correct sum", async () => {
       const res = await request(app)
         .post("/sum")
-        .send({ a: 1, b: 2 }); // Using 1 and 2 to be explicit
-      console.log(userfn())
+        .send({ a: 1, b: 2 });
+
       expect(res.statusCode).toBe(200);
       expect(res.body.answer).toBe(3);
+
+      // Spy: verify prismaClient.sum.create was called exactly once with correct data
+      expect(prismaClient.sum.create).toHaveBeenCalledTimes(1);
+      expect(prismaClient.sum.create).toHaveBeenCalledWith({
+        data: { a: 1, b: 2, result: 3 },
+      });
     });
   });
 
   describe("When inputs are invalid", () => {
-    it("should return 411 for wrong input types", async () => {
+    it("should return 411 for wrong input types and NOT call prisma", async () => {
       const res = await request(app)
         .post("/sum")
-        .send({
-          a: ["asdasdasd"], // invalid type
-          b: 2,
-        });
+        .send({ a: ["invalid"], b: 2 });
 
       expect(res.statusCode).toBe(411);
       expect(res.body.message).toBe("Incorrect inputs");
+
+      // Spy: verify prisma was never called (handler returns early)
+      expect(prismaClient.sum.create).not.toHaveBeenCalled();
     });
 
-    it("should return 411 for empty body", async () => {
+    it("should return 411 for empty body and NOT call prisma", async () => {
       const res = await request(app).post("/sum").send({});
 
       expect(res.statusCode).toBe(411);
+
+      // Spy: verify prisma was never called
+      expect(prismaClient.sum.create).not.toHaveBeenCalled();
     });
   });
 });
