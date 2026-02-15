@@ -15,6 +15,8 @@ describe("POST /sum", () => {
 
   describe("When inputs are valid", () => {
     it("should return 200 and correct sum", async () => {
+      const createSpy = vi.spyOn(prismaClient.sum, "create");
+
       const res = await request(app)
         .post("/sum")
         .send({ a: 1, b: 2 });
@@ -23,8 +25,8 @@ describe("POST /sum", () => {
       expect(res.body.answer).toBe(3);
 
       // Spy: verify prismaClient.sum.create was called exactly once with correct data
-      expect(prismaClient.sum.create).toHaveBeenCalledTimes(1);
-      expect(prismaClient.sum.create).toHaveBeenCalledWith({
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      expect(createSpy).toHaveBeenCalledWith({
         data: { a: 1, b: 2, result: 3 },
       });
     });
@@ -32,6 +34,8 @@ describe("POST /sum", () => {
 
   describe("When inputs are invalid", () => {
     it("should return 411 for wrong input types and NOT call prisma", async () => {
+      const createSpy = vi.spyOn(prismaClient.sum, "create");
+
       const res = await request(app)
         .post("/sum")
         .send({ a: ["invalid"], b: 2 });
@@ -39,17 +43,17 @@ describe("POST /sum", () => {
       expect(res.statusCode).toBe(411);
       expect(res.body.message).toBe("Incorrect inputs");
 
-      // Spy: verify prisma was never called (handler returns early)
-      expect(prismaClient.sum.create).not.toHaveBeenCalled();
+      expect(createSpy).not.toHaveBeenCalled();
     });
 
     it("should return 411 for empty body and NOT call prisma", async () => {
+      const createSpy = vi.spyOn(prismaClient.sum, "create");
+
       const res = await request(app).post("/sum").send({});
 
       expect(res.statusCode).toBe(411);
 
-      // Spy: verify prisma was never called
-      expect(prismaClient.sum.create).not.toHaveBeenCalled();
+      expect(createSpy).not.toHaveBeenCalled();
     });
   });
 });
